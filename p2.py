@@ -4,8 +4,7 @@ Enrico Ancilotto
 """
 import numpy as np
 import networkx as nx
-import scipy.sparse as sp
-from scipy.sparse.linalg import svds,expm
+from scipy.linalg import expm,svd
 
 
 def growth1(G,params=(0.02,6,1,0.1,0.1),T=6):
@@ -44,24 +43,15 @@ def growth1(G,params=(0.02,6,1,0.1,0.1),T=6):
     #-------------------------------------
     del G
 
-    B = sp.block_diag((F,F,F), format="lil")
-    del F
-
-    #The tau term is given by sum F_ji = tau
-    B.setdiag(np.concatenate((np.zeros(n)-tau-g-k, np.zeros(n)-tau-k-a, np.zeros(n)-tau+k),axis=None))
-    B.setdiag([a]*n, n)
-    B.setdiag([theta]*n,-n)
-    B.setdiag([-theta]*n,-2*n)
-    
-    B.tocsc()
+    zero = np.zeros((n,n))
+    eye = np.eye(n)
+    B=np.block([[F-(tau+g+k)*eye, a*eye, zero],
+                [theta*eye,F-(tau+k+a)*eye,zero],
+                [-theta*eye,zero,F-(tau-k)*eye]])
 
     expB = expm(T*B)
-    _, s, vt = svds(expB.tocsc(), k=1, return_singular_vectors="vh")
-    s = s[0]
-    vt = vt[0]
-    
-    growth = s**2
-    return growth, vt
+    _, s, vt = svd(expB)
+    return s[0]**2, vt[0]
 
 def growth2(G,params=(0.02,6,1,0.1,0.1),T=6):
     """
@@ -99,25 +89,17 @@ def growth2(G,params=(0.02,6,1,0.1,0.1),T=6):
     #-------------------------------------
     del G
 
-    B = sp.block_diag((F,F), format="lil")
-    del F
-
-    #The tau term is given by sum F_ji = tau
-    B.setdiag(np.concatenate((np.zeros(n)-tau-g-k, np.zeros(n)-tau-k-a, np.zeros(n)-tau+k),axis=None))
-    B.setdiag([a]*n, n)
-    B.setdiag([theta]*n,-n)
+    eye = np.eye(n)
+    B=np.block([[F-(tau+g+k)*eye, a*eye],
+                [theta*eye,F-(tau+k+a)*eye]])
 
     expB = expm(T*B)
-    expB = expB[n:]
-    _, s, vt = svds(expB, k=1, return_singular_vectors="vh")
-    s = s[0]
-    vt = vt[0]
-    growth = s**2
-    vt = np.append(vt,[0]*n)
-    return growth, vt
+    expI = expB[n:]
+    _, s, vt = svd(expI) 
+    return s[0]**2, np.concatenate((vt[0],[0]*n))
 
 
-def growth3(G,params=(2,2.8,0,1,1.0,0.5),T=6):
+def growth3(G,params=(2,2.8,1,1.0,0.5),T=6):
     """
     Question 2.3
     Find maximum possible growth, G=sum(Si Vi)/e(t=0)
@@ -132,13 +114,13 @@ def growth3(G,params=(2,2.8,0,1,1.0,0.5),T=6):
     Discussion: Add discussion here
     """
     a,theta,g,k,tau=params
-    N = G.number_of_nodes()
+    n = G.number_of_nodes()
 
     #Construct flux matrix (use/modify as needed)
     Q = [t[1] for t in G.degree()]
 
-    Pden = np.zeros(N)
-    Pden_total = np.zeros(N)
+    Pden = np.zeros(n)
+    Pden_total = np.zeros(n)
     for j in G.nodes():
         for m in G.adj[j].keys():
             Pden[j] += Q[m]
@@ -147,14 +129,27 @@ def growth3(G,params=(2,2.8,0,1,1.0,0.5),T=6):
     F = nx.adjacency_matrix(G).toarray()
     F = F*np.outer(Q,Pden)
     #-------------------------------------
-    G=0
+    del G
 
-    #Add code here
+    zero = np.zeros((n,n))
+    eye = np.eye(n)
+    B=np.block([[F-(tau+g+k)*eye, a*eye, zero],
+                [theta*eye,F-(tau+k+a)*eye,zero],
+                [-theta*eye,zero,F-(tau-k)*eye]])
 
-    return G
+    expB = expm(T*B)
+
+    bSpV = expB[:n]+expB[2*n:]
+    bSmV = expB[:n]-expB[2*n:]
+
+    C = bSpV.T @ bSpV - bSmV.T @ bSmV
+
+    eigenVals = np.linalg.eigvals(C)
+
+    return max(eigenVals) / 4
 
 
-def Inew(D):
+def Inew(D=None):
     """
     Question 2.4
 
@@ -167,13 +162,14 @@ def Inew(D):
 
     Discussion: Add discussion here
     """
-    # N,M = D.shape
-    # I = np.zeros(N)
+    if D == None:
+        D = np.loadtxt("data.txt")
+    M, N = D.shape
+    X2 = D - np.outer(np.ones((M,1)),D.mean(axis=0))
+    U = np.linalg.svd(X2.T)[0]
 
-    #Add code here
-
-
-    return I
+    Inew = U[:,0].T @ X2.T
+    return Inew
 
 
 if __name__=='__main__':
