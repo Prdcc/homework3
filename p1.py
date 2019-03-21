@@ -158,13 +158,13 @@ def analyze(gA=None,gAN=None,gB=None,gBN=None,startSavingAt=5):
     suggesting a quicker divergence, and so once again, more chaotic behaviour.
     """
     count = 0   #number of figures saved
-    if gA == None:  #load from file if not given as parameter
+    if gA is None:  #load from file if not given as parameter
         gA = np.load("gA.npy")
-    if gAN == None:
+    if gAN is None:
         gAN = np.load("gAN.npy")
-    if gB == None:
+    if gB is None:
         gB = np.load("gB.npy")
-    if gBN == None:
+    if gBN is None:
         gBN = np.load("gBN.npy")
 
     tstar=200   #parameters
@@ -434,7 +434,7 @@ def wavediff(g=None,startSavingAt=1):
     the boundary. But if this is the case it should always be preferred.
     """
     L=100
-    if g == None:   #If g isn't set load it from file
+    if g is None:   #If g isn't set load it from file
         g = np.load("gLong.npy")
     
     #---------------------------------------------------------------------------
@@ -573,25 +573,33 @@ def wavediff(g=None,startSavingAt=1):
 def init(save):
     sns.set()
 
-    #Compute solutions if not already available, this will take a while
+    #Compute solutions if not already available, this will take a while (a bit less than 5 minutes for me)
     if not os.path.isfile("./gLong.npy"):
-        print("Computing solutions this may take a while")
+        print("Computing solutions, this may take a while")
         print("Progress 0/3",end="")
         g = nwave(1-1j,1+2j,Nx=512,T=100,Nt=401,display=False)
         g = g[-1]
-        print("\rProgress 1/3",end="")       
+        print("\rProgress 1/3",end="")
+    else:
+        g = np.load("gLong.npy")       
 
     if not os.path.isfile("./gA.npy"):
         gA,gAN = nwaveNoise(1-2j,1+2j)
         gA = gA[100:]
         gAN = gAN[100:]
-        print("\rProgress 2/3",end="")     
+        print("\rProgress 2/3",end="")
+    else:
+        gA = np.load("gA.npy")
+        gAN = np.load("gAN.npy")
 
     if not os.path.isfile("./gB.npy"):
         gB,gBN = nwaveNoise(1-1j,1+2j)
-        gB = gB[200:]
-        gBN = gBN[200:]
+        gB = gB[100:]
+        gBN = gBN[100:]
         print("\rProgress 3/3",end="")    
+    else:
+        gB = np.load("gB.npy")
+        gBN = np.load("gBN.npy")
 
     if save:
         np.save("gB.npy",gB)
@@ -603,6 +611,6 @@ def init(save):
 
 if __name__=='__main__':
     x=None
-    gLong, gA, gAN, gB, gBN = init(save=False)    #change to true if expecting to execute more than once and don't mind clutter of a few extra files
+    gLong, gA, gAN, gB, gBN = init(save=True)    #change to true if expecting to execute more than once and don't mind clutter of a few extra files
     wavediff(gLong)
     analyze(gA, gAN, gB, gBN)
